@@ -1,28 +1,217 @@
 <!doctype html>
-<html lang="en">
+<html lang="ko">
 <head>
   <meta charset="utf-8" />
-  <title>HELLO</title>
+  <title>축하 메시지 ✨</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
-    /* 배경 흰색(기본), 중앙 정렬, Excel 30pt와 동일한 30pt 글자 크기 */
-    html, body {
-      height: 100%;
-      margin: 0;
-      background: #ffffff;
+    /* 기본 레이아웃 */
+    :root{
+      --bg1: #ffffff;
+      --bg2: #f6f8ff;
+      --card-bg: rgba(255,255,255,0.7);
+      --card-border: rgba(0,0,0,0.08);
+      --text: #0f172a; /* slate-900 */
+      --accent1: #7c3aed; /* violet */
+      --accent2: #06b6d4; /* cyan */
+      --accent3: #f97316; /* orange */
+      --shadow: 0 10px 30px rgba(0,0,0,.08);
     }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      background: radial-gradient(1200px 800px at 50% -10%, var(--bg2), var(--bg1));
+      color: var(--text);
+      font-family: "Pretendard", system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple SD Gothic Neo", "Noto Sans KR", "맑은 고딕", "Malgun Gothic", sans-serif;
+      overflow: hidden; /* 캔버스 스크롤 방지 */
+    }
+
+    /* 배경에 은은한 하이라이트 레이어 */
+    .glow {
+      position: fixed; inset: -20vmax;
+      pointer-events: none;
+      background:
+        radial-gradient(60vmax 40vmax at 20% 10%, rgba(124,58,237,.07), transparent 60%),
+        radial-gradient(60vmax 40vmax at 80% 0%, rgba(6,182,212,.07), transparent 60%),
+        radial-gradient(70vmax 50vmax at 50% 100%, rgba(249,115,22,.06), transparent 60%);
+      filter: saturate(1.1);
+      z-index: 0;
+      animation: floatGlow 18s ease-in-out infinite alternate;
+    }
+    @keyframes floatGlow {
+      from { transform: translate3d(0,0,0) scale(1); }
+      to   { transform: translate3d(0,-1.5%,0) scale(1.02); }
+    }
+
+    /* 반짝 파티클 캔버스 */
+    canvas#sparkles {
+      position: fixed; inset: 0;
+      width: 100vw; height: 100vh;
+      z-index: 1;
+      pointer-events: none;
+    }
+
+    /* 중앙 카드 */
     .center {
-      display: flex;
-      align-items: center;   /* 수직 중앙 */
-      justify-content: center; /* 수평 중앙 */
-      height: 100vh;         /* 화면 전체 높이 */
-      font-size: 30pt;       /* Excel 30pt에 해당 */
-      font-family: Arial, Helvetica, sans-serif;
-      color: #000000;
+      position: relative;
+      z-index: 2;
+      height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+    }
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border-radius: 24px;
+      padding: clamp(24px, 6vw, 48px);
+      box-shadow: var(--shadow);
+      text-align: center;
+      max-width: min(920px, 90vw);
+      transition: transform .6s cubic-bezier(.2,.6,.2,1);
+      will-change: transform;
+    }
+    .card:hover { transform: translateY(-2px); }
+
+    /* 텍스트 스타일: Excel 30pt = CSS 30pt */
+    .title {
+      font-size: 30pt;        /* 요청하신 30pt 크기 */
+      line-height: 1.25;
+      margin: 0;
+      letter-spacing: .02em;
+      /* 세련된 그라디언트 텍스트 + 은은한 광택 */
+      background: linear-gradient(90deg, var(--accent1), var(--accent2), var(--accent3), var(--accent1));
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      position: relative;
+    }
+    .title::after {
+      /* 살짝 빛이 지나가는 반짝 효과 */
+      content: "";
+      position: absolute; inset: 0;
+      background: linear-gradient(120deg, transparent 0%, rgba(255,255,255,.6) 12%, transparent 24%);
+      mix-blend-mode: screen;
+      transform: translateX(-120%);
+      animation: shimmer 3.5s ease-in-out infinite;
+    }
+    @keyframes shimmer {
+      0% { transform: translateX(-120%); }
+      60% { transform: translateX(120%); }
+      100% { transform: translateX(120%); }
+    }
+
+    .subtitle {
+      margin: 14px 0 0;
+      font-size: clamp(14px, 2.5vw, 18px);
+      color: rgba(15, 23, 42, .7);
+    }
+
+    /* 동작을 최소화: 접근성 */
+    @media (prefers-reduced-motion: reduce) {
+      .glow, .title::after { animation: none; }
     }
   </style>
 </head>
 <body>
-  <div class="center">HELLO WORLD!</div>
+  <div class="glow" aria-hidden="true"></div>
+  <canvas id="sparkles" aria-hidden="true"></canvas>
+
+  <main class="center">
+    <section class="card" role="region" aria-label="축하 메시지">
+      <h1 class="title">박현실 사랑해! 미국시민이 된 것을 축하드립니다!</h1>
+      <!-- 필요하면 보조 문구를 여기에 추가하세요
+      <p class="subtitle">새로운 시작을 응원해요 💖</p>
+      -->
+    </section>
+  </main>
+
+  <script>
+    // 반짝반짝 파티클 (부드럽고 과하지 않게)
+    (() => {
+      const c = document.getElementById('sparkles');
+      const ctx = c.getContext('2d');
+      let w, h, dpr, rafId;
+      const MAX = 120;           // 파티클 개수
+      const particles = [];
+      let mouse = { x: 0.5, y: 0.3 }; // 약한 패럴럭스
+
+      function resize() {
+        dpr = Math.min(window.devicePixelRatio || 1, 2);
+        w = c.width = Math.floor(window.innerWidth * dpr);
+        h = c.height = Math.floor(window.innerHeight * dpr);
+        c.style.width = window.innerWidth + 'px';
+        c.style.height = window.innerHeight + 'px';
+      }
+
+      function rand(a, b) { return a + Math.random() * (b - a); }
+
+      function init() {
+        particles.length = 0;
+        for (let i = 0; i < MAX; i++) {
+          particles.push({
+            x: rand(0, w), y: rand(0, h),
+            r: rand(0.6, 1.8) * dpr,
+            a: rand(.3, .9),
+            vx: rand(-0.07, 0.07) * dpr,
+            vy: rand(-0.12, -0.02) * dpr,  // 살짝 위로 흐르는 느낌
+            tw: rand(0.8, 2.2),
+            t: Math.random() * Math.PI * 2,
+            hue: rand(200, 280) // 보라~시안 계열
+          });
+        }
+      }
+
+      function step(ts) {
+        ctx.clearRect(0, 0, w, h);
+        for (const p of particles) {
+          // 패럴럭스(아주 미세)
+          const parX = (mouse.x - 0.5) * 20 * dpr;
+          const parY = (mouse.y - 0.5) * 20 * dpr;
+
+          p.x += p.vx + parX * 0.0006;
+          p.y += p.vy + parY * 0.0006;
+
+          // 화면 밖으로 나가면 재배치
+          if (p.y < -5 || p.x < -5 || p.x > w + 5) {
+            p.x = rand(0, w);
+            p.y = h + 5;
+          }
+
+          // 반짝임 (알파를 사인으로 살짝 변화)
+          p.t += 0.02 / p.tw;
+          const alpha = p.a * (0.6 + 0.4 * Math.abs(Math.sin(p.t)));
+
+          // 그리기 (부드러운 글로우)
+          const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r * 3);
+          g.addColorStop(0, `hsla(${p.hue}, 90%, 70%, ${alpha})`);
+          g.addColorStop(1, `hsla(${p.hue}, 90%, 70%, 0)`);
+          ctx.fillStyle = g;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.r * 3, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        rafId = requestAnimationFrame(step);
+      }
+
+      // 마우스 움직임으로 아주 약한 시차
+      window.addEventListener('pointermove', (e) => {
+        mouse.x = e.clientX / window.innerWidth;
+        mouse.y = e.clientY / window.innerHeight;
+      }, { passive: true });
+
+      window.addEventListener('resize', () => { resize(); init(); });
+
+      // 초기화
+      resize(); init(); step();
+      // 접근성: 모션 최소 설정이면 정지
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        cancelAnimationFrame(rafId);
+      }
+    })();
+  </script>
 </body>
 </html>
