@@ -1,231 +1,396 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Sora & Joy</title>
-<meta name="description" content="Sora & Joy — Photos and Life Log" />
-<style>
-  :root{
-    --bg:#0b0d10; --card:#12161c; --text:#e8eef7; --muted:#9fb3c8; --accent:#6ee7ff;
-    --border:#1f2a37; --glow:#a5f3fc;
-  }
-  *{box-sizing:border-box}
-  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Noto Sans,sans-serif}
-  a{color:inherit;text-decoration:none}
-  header{position:sticky;top:0;z-index:50;backdrop-filter: blur(8px); background:rgba(11,13,16,.7);border-bottom:1px solid var(--border)}
-  .wrap{max-width:1100px;margin:0 auto;padding:0 16px}
-  .nav{display:flex;align-items:center;justify-content:space-between;height:64px}
-  .brand{font-weight:700;letter-spacing:.5px}
-  .menu{display:flex;gap:16px;font-weight:600}
-  .menu a{padding:8px 10px;border-radius:10px}
-  .menu a.active, .menu a:hover{background:#0f141b;border:1px solid var(--border)}
-  main{padding:28px 0 72px}
-  h1{margin:8px 0 16px;font-size:28px}
-  h2{margin:18px 0 12px;font-size:20px;color:var(--muted)}
-  .section{display:none;animation:fade .25s ease}
-  .section.active{display:block}
-  @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
-
-  /* PHOTO grid */
-  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px}
-  .card{position:relative;background:var(--card);border:1px solid var(--border);border-radius:16px;overflow:hidden}
-  .thumbwrap{position:relative;aspect-ratio:4/3;overflow:hidden}
-  .thumb{width:100%;height:100%;object-fit:cover;display:block;transform:scale(1);transition:transform .5s ease}
-  .meta{padding:10px 12px;color:var(--muted);font-size:12px;border-top:1px solid var(--border)}
-  .card a.open{position:absolute;inset:0}
-  /* Shimmer border on hover */
-  .card::before{
-    content:""; position:absolute; inset:-2px; border-radius:18px; 
-    background: conic-gradient(from 0deg, transparent 0deg, transparent 260deg, var(--glow) 300deg, transparent 360deg);
-    filter: blur(6px); opacity:0; transition:opacity .25s ease, transform .25s ease;
-    transform: scale(.98);
-    pointer-events:none;
-  }
-  .card:hover::before{opacity:.9; transform:scale(1)}
-  .card:hover .thumb{transform:scale(1.03)}
-
-  /* prose (docx → html) */
-  .prose{line-height:1.7;color:var(--text);}
-  .prose p{margin:.6em 0}
-  .prose h1,.prose h2,.prose h3{color:#dbe7f3;margin:1em 0 .5em}
-  .prose a{color:var(--accent);text-decoration:underline}
-  .muted{color:var(--muted)}
-  .pill{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);background:#0f141b;border-radius:999px;padding:6px 10px;font-size:12px;color:var(--muted)}
-  .footer{margin-top:36px;color:var(--muted);border-top:1px solid var(--border);padding-top:16px}
-  .notice{font-size:12px;color:var(--muted)}
-  .center{display:flex;align-items:center;justify-content:center;min-height:120px}
-  .spinner{width:28px;height:28px;border:3px solid #1f2a37;border-top-color:var(--accent);border-radius:50%;animation:spin 1s linear infinite}
-  @keyframes spin{to{transform:rotate(360deg)}}
-  @media (max-width:560px){ .menu{gap:8px} .menu a{padding:6px 8px} }
-</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Live Orders Dashboard</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <!-- Papa Parse for CSV -->
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <style>
+    html, body { height: 100%; }
+    .card { @apply rounded-2xl shadow-lg p-5 bg-white; }
+    .kpi { @apply text-3xl font-semibold; }
+    .kpi-sub { @apply text-sm text-gray-500; }
+    .badge { @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800; }
+  </style>
 </head>
-<body>
-  <header>
-    <div class="wrap nav">
-      <div class="brand">Sora & Joy</div>
-      <nav class="menu" id="menu">
-        <a href="#home"   data-link>HOME</a>
-        <a href="#mylife" data-link>MY LIFE</a>
-        <a href="#photo"  data-link>PHOTO</a>
-        <a href="#log"    data-link>LEAVE LOG</a>
-      </nav>
+<body class="min-h-full bg-gray-50">
+  <header class="border-b bg-white sticky top-0 z-10">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+      <div>
+        <h1 class="text-xl md:text-2xl font-bold">주문 현황 대시보드</h1>
+        <p class="text-sm text-gray-500">Google Sheets CSV를 실시간으로 불러와 통계를 보여줍니다.</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <button id="refreshBtn" class="rounded-xl bg-gray-900 text-white px-4 py-2 text-sm hover:bg-gray-800">새로고침</button>
+        <span id="lastUpdated" class="text-xs text-gray-500">업데이트 대기중…</span>
+      </div>
     </div>
   </header>
 
-  <main class="wrap">
-    <!-- HOME -->
-    <section id="home" class="section">
-      <h1>Welcome</h1>
-      <div id="homeContent" class="prose"><div class="center"><div class="spinner"></div></div></div>
-    </section>
-
-    <!-- MY LIFE -->
-    <section id="mylife" class="section">
-      <h1>My Life</h1>
-      <div id="mylifeContent" class="prose"><div class="center"><div class="spinner"></div></div></div>
-    </section>
-
-    <!-- PHOTO -->
-    <section id="photo" class="section">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
-        <h1>Photos</h1>
-        <span class="pill"><span>최신 업로드가 위에 표시됩니다</span></span>
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    <!-- Controls -->
+    <section class="grid grid-cols-1 lg:grid-cols-4 gap-4 items-end">
+      <div class="lg:col-span-2 card">
+        <label class="block text-sm text-gray-500 mb-1">데이터 소스 (CSV)</label>
+        <div class="flex flex-col md:flex-row gap-2 md:items-center">
+          <input id="csvUrl" type="url" class="w-full rounded-xl border-gray-300 focus:ring-0 focus:border-gray-900" value="https://docs.google.com/spreadsheets/d/e/2PACX-1vQ6Lbqv18MZLm9u-M1INVbWztFTMIf0ycP3dm8C49cPYsZ-amxXnGcRcyDl43XGrkUjaFDmYnmYRLue/pub?gid=0&single=true&output=csv" />
+          <button id="applyUrl" class="rounded-xl bg-gray-900 text-white px-3 py-2 text-sm hover:bg-gray-800 whitespace-nowrap">적용</button>
+        </div>
+        <p class="mt-2 text-xs text-gray-500">링크는 공개(Published)된 CSV여야 하며 업데이트 시 자동 반영됩니다.</p>
       </div>
-      <div id="photoGrid" class="grid" style="margin-top:12px">
-        <div class="center" style="grid-column:1/-1"><div class="spinner"></div></div>
+
+      <div class="card">
+        <label for="partSelect" class="block text-sm text-gray-500 mb-1">파트 넘버</label>
+        <select id="partSelect" class="w-full rounded-xl border-gray-300 focus:ring-0 focus:border-gray-900"></select>
+        <p class="mt-1 text-xs text-gray-400">선택 시 해당 파트의 통계가 표시됩니다.</p>
       </div>
-      <div class="footer"><span class="muted" id="updatedAt"></span></div>
+
+      <div class="card">
+        <label for="searchInput" class="block text-sm text-gray-500 mb-1">검색(고객/주문번호 등)</label>
+        <input id="searchInput" type="text" placeholder="키워드 입력" class="w-full rounded-xl border-gray-300 focus:ring-0 focus:border-gray-900" />
+      </div>
     </section>
 
-    <!-- LEAVE LOG (giscus) -->
-    <section id="log" class="section">
-      <h1>Leave a Log</h1>
-      <!-- giscus: 아래 값들을 본인 설정으로 교체 -->
-      <script src="https://giscus.app/client.js"
-              data-repo="soraandjoy/soraandjoy.github.io"
-              data-repo-id=""
-              data-category="General"
-              data-category-id=""
-              data-mapping="pathname"
-              data-strict="0"
-              data-reactions-enabled="1"
-              data-emit-metadata="0"
-              data-input-position="bottom"
-              data-theme="dark"
-              data-lang="ko"
-              crossorigin="anonymous"
-              async>
-      </script>
-      <noscript class="muted">댓글을 보려면 JavaScript가 필요합니다.</noscript>
+    <!-- KPIs -->
+    <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4 mt-6">
+      <div class="card"><div class="kpi" id="kpiTotal">0</div><div class="kpi-sub">총 주문수</div></div>
+      <div class="card"><div class="kpi" id="kpiDelivered">0</div><div class="kpi-sub">Delivered</div></div>
+      <div class="card"><div class="kpi" id="kpiNotDelivered">0</div><div class="kpi-sub">미배송</div></div>
+      <div class="card"><div class="kpi" id="kpiCost">$0</div><div class="kpi-sub">총 Cost</div></div>
+      <div class="card"><div class="kpi" id="kpiPaid">$0</div><div class="kpi-sub">Paid 합계</div></div>
+      <div class="card"><div class="kpi" id="kpiUnpaid">$0</div><div class="kpi-sub">미수금</div></div>
     </section>
+
+    <!-- Charts -->
+    <section class="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-6">
+      <div class="card">
+        <div class="flex items-center justify-between mb-2">
+          <h2 class="font-semibold">배송 상태</h2>
+          <span class="badge" id="deliveredColName">-</span>
+        </div>
+        <canvas id="deliveryChart" height="220"></canvas>
+      </div>
+      <div class="card">
+        <div class="flex items-center justify-between mb-2">
+          <h2 class="font-semibold">결제 상태</h2>
+          <span class="badge" id="paidColName">-</span>
+        </div>
+        <canvas id="paymentChart" height="220"></canvas>
+      </div>
+    </section>
+
+    <!-- Detected columns (debug/help) -->
+    <section class="mt-6 card">
+      <h3 class="font-semibold mb-2">감지된 컬럼</h3>
+      <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 text-sm">
+        <div>Part: <span class="badge" id="colPart">-</span></div>
+        <div>Delivered: <span class="badge" id="colDelivered">-</span></div>
+        <div>Cost: <span class="badge" id="colCost">-</span></div>
+        <div>Paid Bool: <span class="badge" id="colPaidBool">-</span></div>
+        <div>Paid Amount: <span class="badge" id="colPaidAmount">-</span></div>
+        <div>Balance/Due: <span class="badge" id="colBalance">-</span></div>
+      </div>
+      <p class="mt-2 text-xs text-gray-500">컬럼명이 다를 경우, 위 감지 결과를 참고해 시트의 컬럼명을 일반적인 이름으로 맞추면 더 정확합니다.</p>
+    </section>
+
+    <!-- Table -->
+    <section class="mt-6 card">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="font-semibold">상세 내역</h2>
+        <div class="text-xs text-gray-500">표는 현재 필터(파트/검색)에 맞춰 표시됩니다.</div>
+      </div>
+      <div class="overflow-auto">
+        <table class="min-w-full text-sm" id="dataTable"></table>
+      </div>
+    </section>
+
+    <footer class="py-8 text-center text-xs text-gray-400">© <span id="thisYear"></span> Live CSV Dashboard</footer>
   </main>
 
-  <!-- mammoth: 브라우저에서 docx → html 변환 -->
-  <script src="https://unpkg.com/mammoth/mammoth.browser.min.js"></script>
   <script>
-  // ====== CONFIG (Option A) ======
-  const OWNER  = "soraandjoy";                 // 깃허브 아이디
-  const REPO   = "soraandjoy.github.io";       // 저장소 이름
-  const BRANCH = "main";                       // 브랜치
-  const PATHS = {
-    photos : "photos",
-    homeDoc: "content/home.docx",
-    lifeDoc: "content/mylife.docx",
-  };
+    const state = {
+      csvUrl: document.getElementById('csvUrl').value.trim(),
+      rows: [],
+      headers: [],
+      mapping: {},
+      deliveryChart: null,
+      paymentChart: null,
+      refreshMs: 2 * 60 * 1000, // 2분마다 자동 새로고침
+    };
 
-  // raw.githubusercontent 전용 URL
-  const rawUrl = (path) => `https://raw.githubusercontent.com/${OWNER}/${REPO}/${BRANCH}/${path}`;
+    const CANDIDATES = {
+      part: ['part number','part','part_number','pn','item','sku','product','model'],
+      delivered: ['delivered','delivery status','ship status','status','shipment status','fulfilled'],
+      cost: ['cost','total','order total','amount','price','order amount','subtotal'],
+      paidBool: ['paid','is paid','paid?','payment status','settled'],
+      paidAmount: ['paid amount','amount paid','payment received','received','paid_total'],
+      balance: ['balance','due','outstanding','unpaid amount','remaining']
+    };
 
-  // GitHub Contents API (디렉토리 목록/파일 메타 조회)
-  const ghContents = (path) =>
-    `https://api.github.com/repos/${OWNER}/${REPO}/contents/${encodeURIComponent(path)}?ref=${BRANCH}`;
+    const TRUE_VALUES = ['y','yes','true','1','paid','delivered','complete','completed','fulfilled'];
 
-  // ====== 라우터 ======
-  const sections = ["home","mylife","photo","log"];
-  function setActive(route){
-    sections.forEach(id=>{
-      document.getElementById(id).classList.toggle("active", id===route);
-    });
-    document.querySelectorAll('[data-link]').forEach(a=>{
-      a.classList.toggle("active", a.getAttribute("href")==="#"+route);
-    });
-  }
-  window.addEventListener("hashchange", boot);
-  function boot(){
-    const hash = (location.hash || "#home").replace("#","");
-    const route = sections.includes(hash)? hash : "home";
-    setActive(route);
-    if(route==="photo")  loadPhotos();
-    if(route==="home")   loadDocx(PATHS.homeDoc, "homeContent");
-    if(route==="mylife") loadDocx(PATHS.lifeDoc, "mylifeContent");
-  }
+    // Helpers
+    const clean = (v) => (v == null ? '' : String(v).trim());
+    const toLower = (s) => clean(s).toLowerCase();
+    const parseMoney = (v) => {
+      const s = clean(v).replace(/[$,\s]/g,'').replace(/[()]/g,'');
+      const n = parseFloat(s);
+      return isNaN(n) ? 0 : n;
+    };
 
-  // ====== DOCX 로더 (raw 사용) ======
-  async function loadDocx(path, targetId){
-    const el = document.getElementById(targetId);
-    try{
-      const res = await fetch(rawUrl(path), {cache:"no-store"});
-      if(!res.ok) throw new Error("파일을 찾지 못했습니다");
-      const buf = await res.arrayBuffer();
-      const result = await window.mammoth.convertToHtml({arrayBuffer: buf});
-      el.innerHTML = result.value || "<p class='muted'>문서 내용이 비어 있습니다.</p>";
-    }catch(e){
-      el.innerHTML = `<p class="muted"><code>${path}</code>를 불러오지 못했습니다. (DOCX 형식/경로/공개 여부/Git LFS 여부 확인)<br/>오류: ${e.message}</p>`;
+    function detectColumns(headers){
+      const hLow = headers.map(h => toLower(h));
+      function findOne(keys){
+        for(const key of keys){
+          for(let i=0;i<hLow.length;i++){
+            if(hLow[i].includes(key)) return headers[i];
+          }
+        }
+        return null;
+      }
+      const mapping = {
+        part: findOne(CANDIDATES.part),
+        delivered: findOne(CANDIDATES.delivered),
+        cost: findOne(CANDIDATES.cost),
+        paidBool: findOne(CANDIDATES.paidBool),
+        paidAmount: findOne(CANDIDATES.paidAmount),
+        balance: findOne(CANDIDATES.balance),
+      };
+      return mapping;
     }
-  }
 
-  // ====== PHOTOS 로더 (목록: API, 이미지: raw) ======
-  async function loadPhotos(){
-    const grid = document.getElementById("photoGrid");
-    try{
-      const res = await fetch(ghContents(PATHS.photos), {cache:"no-store"});
-      if(!res.ok) throw new Error("photos 폴더를 찾지 못했습니다");
-      /** @type {{name:string, path:string, type:string}[]} */
-      const items = await res.json();
+    function isTrueLike(v){
+      return TRUE_VALUES.includes(toLower(v));
+    }
 
-      // 이미지 확장자 필터
-      const exts = [".jpg",".jpeg",".png",".gif",".webp",".bmp",".avif"];
-      const photos = items
-        .filter(x => x.type==="file" && exts.some(ext=> x.name.toLowerCase().endsWith(ext)))
-        // 파일명 기준 내림차순 (YYYY-MM-DD_HHMMSS_ 프리픽스 권장)
-        .sort((a,b)=> b.name.localeCompare(a.name));
+    function renderDetected(mapping){
+      document.getElementById('colPart').textContent = mapping.part || '-';
+      document.getElementById('colDelivered').textContent = mapping.delivered || '-';
+      document.getElementById('colCost').textContent = mapping.cost || '-';
+      document.getElementById('colPaidBool').textContent = mapping.paidBool || '-';
+      document.getElementById('colPaidAmount').textContent = mapping.paidAmount || '-';
+      document.getElementById('colBalance').textContent = mapping.balance || '-';
+      document.getElementById('deliveredColName').textContent = mapping.delivered || 'status';
+      document.getElementById('paidColName').textContent = mapping.paidBool || mapping.paidAmount || 'payment';
+    }
 
-      if(photos.length===0){
-        grid.innerHTML = `<div class="center" style="grid-column:1/-1"><p class="muted"><code>/${PATHS.photos}</code>에 이미지가 없습니다.</p></div>`;
-        document.getElementById("updatedAt").textContent = "";
-        return;
+    function uniqueSorted(arr){
+      return [...new Set(arr.filter(Boolean))].sort((a,b)=> String(a).localeCompare(String(b)));
+    }
+
+    function buildPartSelect(){
+      const select = document.getElementById('partSelect');
+      const { part } = state.mapping;
+      const parts = part ? uniqueSorted(state.rows.map(r => clean(r[part]))) : [];
+      select.innerHTML = '';
+      const optAll = document.createElement('option');
+      optAll.value = '';
+      optAll.textContent = '모든 파트';
+      select.appendChild(optAll);
+      parts.forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p;
+        opt.textContent = p || '(빈값)';
+        select.appendChild(opt);
+      });
+      // preserve previous selection if possible
+      if(state.prevPart && [...select.options].some(o => o.value === state.prevPart)){
+        select.value = state.prevPart;
+      }
+    }
+
+    function applyFilters(){
+      const partSel = document.getElementById('partSelect').value;
+      const q = toLower(document.getElementById('searchInput').value);
+      state.prevPart = partSel;
+      return state.rows.filter(r => {
+        const inPart = !partSel || clean(r[state.mapping.part]) === partSel;
+        if(!q) return inPart;
+        // simple keyword search across row values
+        const joined = Object.values(r).map(clean).join(' ').toLowerCase();
+        return inPart && joined.includes(q);
+      });
+    }
+
+    function sum(arr){ return arr.reduce((a,b)=>a+b,0); }
+
+    function calcStats(filtered){
+      const { delivered, cost, paidBool, paidAmount, balance } = state.mapping;
+      const total = filtered.length;
+      // Delivery counts
+      let deliveredCount = 0;
+      filtered.forEach(r => {
+        const v = r[delivered];
+        if(v!=null){
+          if(isTrueLike(v) || toLower(v) === 'delivered') deliveredCount++;
+        }
+      });
+      const notDelivered = total - deliveredCount;
+
+      // Money
+      const costs = cost ? filtered.map(r => parseMoney(r[cost])) : filtered.map(()=>0);
+      const totalCost = sum(costs);
+
+      let paidSum = 0, unpaidSum = 0;
+      if(paidAmount){
+        const paidVals = filtered.map(r => parseMoney(r[paidAmount]));
+        paidSum = sum(paidVals);
+        if(balance){
+          unpaidSum = sum(filtered.map(r => parseMoney(r[balance])));
+        } else if(cost){
+          unpaidSum = Math.max(0, totalCost - paidSum);
+        }
+      } else if(paidBool && cost){
+        filtered.forEach((r,i) => {
+          const paid = isTrueLike(r[paidBool]) || toLower(r[paidBool]) === 'paid';
+          if(paid) paidSum += costs[i]; else unpaidSum += costs[i];
+        });
       }
 
-      // 카드 렌더링
-      grid.innerHTML = "";
-      const maxW = 1024, maxH = 768; // 그리드 표시 목표 사이즈(원본은 새창)
-      photos.forEach(p=>{
-        const raw = rawUrl(`${PATHS.photos}/${p.name}`); // 새창에서 원본 열기 (raw)
-        const card = document.createElement("div");
-        card.className = "card";
-        card.innerHTML = `
-          <a class="open" href="${raw}" target="_blank" rel="noopener" title="원본 열기 (새 창)"></a>
-          <div class="thumbwrap">
-            <img class="thumb" src="${raw}" alt="${p.name}" loading="lazy"
-                 style="max-width:${maxW}px; max-height:${maxH}px;" />
-          </div>
-          <div class="meta">${p.name}</div>
-        `;
-        grid.appendChild(card);
-      });
-
-      document.getElementById("updatedAt").textContent =
-        "Updated: " + new Date().toLocaleString();
-
-    }catch(e){
-      grid.innerHTML = `<div class="center" style="grid-column:1/-1"><p class="muted">사진을 불러오지 못했습니다. ${e.message}</p></div>`;
-      document.getElementById("updatedAt").textContent = "";
+      return { total, deliveredCount, notDelivered, totalCost, paidSum, unpaidSum };
     }
-  }
 
-  // 초기 진입
-  boot();
+    function fmtMoney(n){
+      return n.toLocaleString(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 2 });
+    }
+
+    function renderKPIs(stats){
+      document.getElementById('kpiTotal').textContent = stats.total.toLocaleString();
+      document.getElementById('kpiDelivered').textContent = stats.deliveredCount.toLocaleString();
+      document.getElementById('kpiNotDelivered').textContent = stats.notDelivered.toLocaleString();
+      document.getElementById('kpiCost').textContent = fmtMoney(stats.totalCost);
+      document.getElementById('kpiPaid').textContent = fmtMoney(stats.paidSum);
+      document.getElementById('kpiUnpaid').textContent = fmtMoney(stats.unpaidSum);
+    }
+
+    function renderTable(filtered){
+      const tbl = document.getElementById('dataTable');
+      const heads = state.headers;
+      // header
+      const thead = `<thead><tr class="text-left text-gray-500">${heads.map(h=>`<th class="px-3 py-2 border-b">${h}</th>`).join('')}</tr></thead>`;
+      // body (limit 500 rows for performance)
+      const rows = filtered.slice(0, 500).map(r => {
+        return `<tr class="odd:bg-gray-50">
+          ${heads.map(h=>`<td class="px-3 py-2 border-b whitespace-nowrap">${clean(r[h])}</td>`).join('')}
+        </tr>`
+      }).join('');
+      const tbody = `<tbody>${rows}</tbody>`;
+      tbl.innerHTML = thead + tbody;
+    }
+
+    function upsertChart(chartRef, ctx, labels, values, title){
+      if(chartRef && chartRef.destroy){ chartRef.destroy(); }
+      return new Chart(ctx, {
+        type: 'doughnut',
+        data: { labels, datasets: [{ data: values }] },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { position: 'bottom' },
+            title: { display: false, text: title }
+          }
+        }
+      });
+    }
+
+    function renderCharts(stats){
+      const dctx = document.getElementById('deliveryChart');
+      state.deliveryChart = upsertChart(state.deliveryChart, dctx, ['Delivered','미배송'], [stats.deliveredCount, stats.notDelivered], '배송 상태');
+      const pctx = document.getElementById('paymentChart');
+      state.paymentChart = upsertChart(state.paymentChart, pctx, ['Paid','미수금'], [stats.paidSum, stats.unpaidSum], '결제 상태');
+    }
+
+    function setLastUpdated(){
+      const now = new Date();
+      document.getElementById('lastUpdated').textContent = `업데이트: ${now.toLocaleString()}`;
+      document.getElementById('thisYear').textContent = now.getFullYear();
+    }
+
+    function refreshAll(){
+      const filtered = applyFilters();
+      const stats = calcStats(filtered);
+      renderKPIs(stats);
+      renderCharts(stats);
+      renderTable(filtered);
+    }
+
+    function loadCsv(url){
+      // Try direct fetch first (best for Google "Publish to web" CSV)
+      const bust = (url.includes('?') ? '&' : '?') + 'cb=' + Date.now();
+      const directUrl = url + bust;
+      return new Promise(async (resolve, reject) => {
+        try {
+          const res = await fetch(directUrl, { mode: 'cors', cache: 'no-store' });
+          if(!res.ok){ throw new Error('HTTP '+res.status+' '+res.statusText); }
+          const text = await res.text();
+          const parsed = Papa.parse(text, { header: true, dynamicTyping: false, skipEmptyLines: 'greedy' });
+          if(parsed && parsed.data){ return resolve(parsed); }
+          throw new Error('Parsing failed');
+        } catch (e1){
+          console.warn('Direct fetch failed, trying CORS proxy…', e1);
+          // Fallback via AllOrigins (public CORS proxy). For production, use your own small proxy.
+          const proxy = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url);
+          try{
+            const res2 = await fetch(proxy, { cache: 'no-store' });
+            if(!res2.ok){ throw new Error('Proxy HTTP '+res2.status+' '+res2.statusText); }
+            const text2 = await res2.text();
+            const parsed2 = Papa.parse(text2, { header: true, dynamicTyping: false, skipEmptyLines: 'greedy' });
+            if(parsed2 && parsed2.data){ return resolve(parsed2); }
+            throw new Error('Proxy parsing failed');
+          }catch(e2){
+            reject(new Error('CSV load error. Direct: '+e1.message+' | Proxy: '+e2.message));
+          }
+        }
+      });
+    }
+
+    async function fetchAndRender(){
+      try{
+        const url = state.csvUrl;
+        const res = await loadCsv(url);
+        state.rows = (res.data || []).filter(r => Object.values(r).some(v => clean(v) !== ''));
+        state.headers = res.meta && res.meta.fields ? res.meta.fields : Object.keys(state.rows[0]||{});
+        state.mapping = detectColumns(state.headers);
+        renderDetected(state.mapping);
+        buildPartSelect();
+        setLastUpdated();
+        refreshAll();
+      }catch(e){
+        console.error(e);
+        alert('CSV를 불러오지 못했습니다. 체크리스트:
+
+• Google Sheets에서 File → Share → Publish to web 로 공개되었는지
+• 제공한 링크가 pub?…output=csv 형태인지
+• 브라우저/호스팅에서 CORS가 막히지 않는지 (지금은 자동 우회 시도)
+
+기술 상세: '+(e && e.message ? e.message : e));
+      }
+    }
+
+    // Events
+    document.getElementById('refreshBtn').addEventListener('click', ()=>{
+      fetchAndRender();
+    });
+    document.getElementById('applyUrl').addEventListener('click', ()=>{
+      const v = document.getElementById('csvUrl').value.trim();
+      if(v){ state.csvUrl = v; fetchAndRender(); }
+    });
+    document.getElementById('partSelect').addEventListener('change', refreshAll);
+    document.getElementById('searchInput').addEventListener('input', ()=>{
+      // debounce not strictly needed here
+      refreshAll();
+    });
+
+    // Auto refresh
+    setInterval(()=>{ fetchAndRender(); }, state.refreshMs);
+
+    // First load
+    fetchAndRender();
   </script>
 </body>
 </html>
