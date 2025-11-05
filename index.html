@@ -4,393 +4,61 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Live Orders Dashboard</title>
-  <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-  <!-- Papa Parse for CSV -->
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
-  <style>
-    html, body { height: 100%; }
-    .card { @apply rounded-2xl shadow-lg p-5 bg-white; }
-    .kpi { @apply text-3xl font-semibold; }
-    .kpi-sub { @apply text-sm text-gray-500; }
-    .badge { @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800; }
-  </style>
+  <style>body{background:#f8fafc;} .card{border-radius:14px;background:white;padding:18px;box-shadow:0 4px 10px rgba(0,0,0,.05);} .kpi{font-size:24px;font-weight:700;} .kpi-sub{font-size:12px;color:#555;} select,input{border-radius:10px;border:1px solid #ddd;padding:8px;width:100%;}</style>
 </head>
-<body class="min-h-full bg-gray-50">
-  <header class="border-b bg-white sticky top-0 z-10">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-      <div>
-        <h1 class="text-xl md:text-2xl font-bold">주문 현황 대시보드</h1>
-        <p class="text-sm text-gray-500">Google Sheets CSV를 실시간으로 불러와 통계를 보여줍니다.</p>
-      </div>
-      <div class="flex items-center gap-2">
-        <button id="refreshBtn" class="rounded-xl bg-gray-900 text-white px-4 py-2 text-sm hover:bg-gray-800">새로고침</button>
-        <span id="lastUpdated" class="text-xs text-gray-500">업데이트 대기중…</span>
-      </div>
-    </div>
-  </header>
+<body class="min-h-screen p-4">
 
-  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-    <!-- Controls -->
-    <section class="grid grid-cols-1 lg:grid-cols-4 gap-4 items-end">
-      <div class="lg:col-span-2 card">
-        <label class="block text-sm text-gray-500 mb-1">데이터 소스 (CSV)</label>
-        <div class="flex flex-col md:flex-row gap-2 md:items-center">
-          <input id="csvUrl" type="url" class="w-full rounded-xl border-gray-300 focus:ring-0 focus:border-gray-900" value="https://docs.google.com/spreadsheets/d/e/2PACX-1vQ6Lbqv18MZLm9u-M1INVbWztFTMIf0ycP3dm8C49cPYsZ-amxXnGcRcyDl43XGrkUjaFDmYnmYRLue/pub?gid=0&single=true&output=csv" />
-          <button id="applyUrl" class="rounded-xl bg-gray-900 text-white px-3 py-2 text-sm hover:bg-gray-800 whitespace-nowrap">적용</button>
-        </div>
-        <p class="mt-2 text-xs text-gray-500">링크는 공개(Published)된 CSV여야 하며 업데이트 시 자동 반영됩니다.</p>
-      </div>
+<h1 class="text-2xl font-bold mb-4">주문 현황 대시보드</h1>
+<div class="card mb-4">
+  <label class="text-sm text-gray-600">Google Sheets CSV URL</label>
+  <input id="csvUrl" value="https://docs.google.com/spreadsheets/d/e/2PACX-1vQ6Lbqv18MZLm9u-M1INVbWztFTMIf0ycP3dm8C49cPYsZ-amxXnGcRcyDl43XGrkUjaFDmYnmYRLue/pub?gid=0&single=true&output=csv" />
+  <button id="refreshBtn" class="mt-2 bg-black text-white px-3 py-2 rounded-lg">Refresh</button>
+  <div id="lastUpdated" class="text-xs text-gray-500 mt-1"></div>
+</div>
 
-      <div class="card">
-        <label for="partSelect" class="block text-sm text-gray-500 mb-1">파트 넘버</label>
-        <select id="partSelect" class="w-full rounded-xl border-gray-300 focus:ring-0 focus:border-gray-900"></select>
-        <p class="mt-1 text-xs text-gray-400">선택 시 해당 파트의 통계가 표시됩니다.</p>
-      </div>
+<div class="card mb-4">
+  <label class="text-sm text-gray-600">파트 선택</label>
+  <select id="partSelect"></select>
+</div>
 
-      <div class="card">
-        <label for="searchInput" class="block text-sm text-gray-500 mb-1">검색(고객/주문번호 등)</label>
-        <input id="searchInput" type="text" placeholder="키워드 입력" class="w-full rounded-xl border-gray-300 focus:ring-0 focus:border-gray-900" />
-      </div>
-    </section>
+<div class="grid grid-cols-2 md:grid-cols-6 gap-3 mb-4" id="kpiBox">
+  <div class="card"><div class="kpi" id="kpiTotal">0</div><div class="kpi-sub">총 주문</div></div>
+  <div class="card"><div class="kpi" id="kpiDelivered">0</div><div class="kpi-sub">Delivered</div></div>
+  <div class="card"><div class="kpi" id="kpiNotDelivered">0</div><div class="kpi-sub">미배송</div></div>
+  <div class="card"><div class="kpi" id="kpiCost">$0</div><div class="kpi-sub">총 Cost</div></div>
+  <div class="card"><div class="kpi" id="kpiPaid">$0</div><div class="kpi-sub">Paid</div></div>
+  <div class="card"><div class="kpi" id="kpiUnpaid">$0</div><div class="kpi-sub">미수금</div></div>
+</div>
 
-    <!-- KPIs -->
-    <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4 mt-6">
-      <div class="card"><div class="kpi" id="kpiTotal">0</div><div class="kpi-sub">총 주문수</div></div>
-      <div class="card"><div class="kpi" id="kpiDelivered">0</div><div class="kpi-sub">Delivered</div></div>
-      <div class="card"><div class="kpi" id="kpiNotDelivered">0</div><div class="kpi-sub">미배송</div></div>
-      <div class="card"><div class="kpi" id="kpiCost">$0</div><div class="kpi-sub">총 Cost</div></div>
-      <div class="card"><div class="kpi" id="kpiPaid">$0</div><div class="kpi-sub">Paid 합계</div></div>
-      <div class="card"><div class="kpi" id="kpiUnpaid">$0</div><div class="kpi-sub">미수금</div></div>
-    </section>
+<div class="card mb-4"><canvas id="deliveryChart" height="120"></canvas></div>
+<div class="card mb-4"><canvas id="paymentChart" height="120"></canvas></div>
 
-    <!-- Charts -->
-    <section class="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-6">
-      <div class="card">
-        <div class="flex items-center justify-between mb-2">
-          <h2 class="font-semibold">배송 상태</h2>
-          <span class="badge" id="deliveredColName">-</span>
-        </div>
-        <canvas id="deliveryChart" height="220"></canvas>
-      </div>
-      <div class="card">
-        <div class="flex items-center justify-between mb-2">
-          <h2 class="font-semibold">결제 상태</h2>
-          <span class="badge" id="paidColName">-</span>
-        </div>
-        <canvas id="paymentChart" height="220"></canvas>
-      </div>
-    </section>
+<div class="card overflow-auto"><table id="dataTable" class="text-sm"></table></div>
 
-    <!-- Detected columns (debug/help) -->
-    <section class="mt-6 card">
-      <h3 class="font-semibold mb-2">감지된 컬럼</h3>
-      <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 text-sm">
-        <div>Part: <span class="badge" id="colPart">-</span></div>
-        <div>Delivered: <span class="badge" id="colDelivered">-</span></div>
-        <div>Cost: <span class="badge" id="colCost">-</span></div>
-        <div>Paid Bool: <span class="badge" id="colPaidBool">-</span></div>
-        <div>Paid Amount: <span class="badge" id="colPaidAmount">-</span></div>
-        <div>Balance/Due: <span class="badge" id="colBalance">-</span></div>
-      </div>
-      <p class="mt-2 text-xs text-gray-500">컬럼명이 다를 경우, 위 감지 결과를 참고해 시트의 컬럼명을 일반적인 이름으로 맞추면 더 정확합니다.</p>
-    </section>
-
-    <!-- Table -->
-    <section class="mt-6 card">
-      <div class="flex items-center justify-between mb-3">
-        <h2 class="font-semibold">상세 내역</h2>
-        <div class="text-xs text-gray-500">표는 현재 필터(파트/검색)에 맞춰 표시됩니다.</div>
-      </div>
-      <div class="overflow-auto">
-        <table class="min-w-full text-sm" id="dataTable"></table>
-      </div>
-    </section>
-
-    <footer class="py-8 text-center text-xs text-gray-400">© <span id="thisYear"></span> Live CSV Dashboard</footer>
-  </main>
-
-  <script>
-    const state = {
-      csvUrl: document.getElementById('csvUrl').value.trim(),
-      rows: [],
-      headers: [],
-      mapping: {},
-      deliveryChart: null,
-      paymentChart: null,
-      refreshMs: 2 * 60 * 1000, // 2분마다 자동 새로고침
-    };
-
-    const CANDIDATES = {
-      part: ['part number','part','part_number','pn','item','sku','product','model'],
-      delivered: ['delivered','delivery status','ship status','status','shipment status','fulfilled'],
-      cost: ['cost','total','order total','amount','price','order amount','subtotal'],
-      paidBool: ['paid','is paid','paid?','payment status','settled'],
-      paidAmount: ['paid amount','amount paid','payment received','received','paid_total'],
-      balance: ['balance','due','outstanding','unpaid amount','remaining']
-    };
-
-    const TRUE_VALUES = ['y','yes','true','1','paid','delivered','complete','completed','fulfilled'];
-
-    // Helpers
-    const clean = (v) => (v == null ? '' : String(v).trim());
-    const toLower = (s) => clean(s).toLowerCase();
-    const parseMoney = (v) => {
-      const s = clean(v).replace(/[$,\s]/g,'').replace(/[()]/g,'');
-      const n = parseFloat(s);
-      return isNaN(n) ? 0 : n;
-    };
-
-    function detectColumns(headers){
-      const hLow = headers.map(h => toLower(h));
-      function findOne(keys){
-        for(const key of keys){
-          for(let i=0;i<hLow.length;i++){
-            if(hLow[i].includes(key)) return headers[i];
-          }
-        }
-        return null;
-      }
-      const mapping = {
-        part: findOne(CANDIDATES.part),
-        delivered: findOne(CANDIDATES.delivered),
-        cost: findOne(CANDIDATES.cost),
-        paidBool: findOne(CANDIDATES.paidBool),
-        paidAmount: findOne(CANDIDATES.paidAmount),
-        balance: findOne(CANDIDATES.balance),
-      };
-      return mapping;
-    }
-
-    function isTrueLike(v){
-      return TRUE_VALUES.includes(toLower(v));
-    }
-
-    function renderDetected(mapping){
-      document.getElementById('colPart').textContent = mapping.part || '-';
-      document.getElementById('colDelivered').textContent = mapping.delivered || '-';
-      document.getElementById('colCost').textContent = mapping.cost || '-';
-      document.getElementById('colPaidBool').textContent = mapping.paidBool || '-';
-      document.getElementById('colPaidAmount').textContent = mapping.paidAmount || '-';
-      document.getElementById('colBalance').textContent = mapping.balance || '-';
-      document.getElementById('deliveredColName').textContent = mapping.delivered || 'status';
-      document.getElementById('paidColName').textContent = mapping.paidBool || mapping.paidAmount || 'payment';
-    }
-
-    function uniqueSorted(arr){
-      return [...new Set(arr.filter(Boolean))].sort((a,b)=> String(a).localeCompare(String(b)));
-    }
-
-    function buildPartSelect(){
-      const select = document.getElementById('partSelect');
-      const { part } = state.mapping;
-      const parts = part ? uniqueSorted(state.rows.map(r => clean(r[part]))) : [];
-      select.innerHTML = '';
-      const optAll = document.createElement('option');
-      optAll.value = '';
-      optAll.textContent = '모든 파트';
-      select.appendChild(optAll);
-      parts.forEach(p => {
-        const opt = document.createElement('option');
-        opt.value = p;
-        opt.textContent = p || '(빈값)';
-        select.appendChild(opt);
-      });
-      // preserve previous selection if possible
-      if(state.prevPart && [...select.options].some(o => o.value === state.prevPart)){
-        select.value = state.prevPart;
-      }
-    }
-
-    function applyFilters(){
-      const partSel = document.getElementById('partSelect').value;
-      const q = toLower(document.getElementById('searchInput').value);
-      state.prevPart = partSel;
-      return state.rows.filter(r => {
-        const inPart = !partSel || clean(r[state.mapping.part]) === partSel;
-        if(!q) return inPart;
-        // simple keyword search across row values
-        const joined = Object.values(r).map(clean).join(' ').toLowerCase();
-        return inPart && joined.includes(q);
-      });
-    }
-
-    function sum(arr){ return arr.reduce((a,b)=>a+b,0); }
-
-    function calcStats(filtered){
-      const { delivered, cost, paidBool, paidAmount, balance } = state.mapping;
-      const total = filtered.length;
-      // Delivery counts
-      let deliveredCount = 0;
-      filtered.forEach(r => {
-        const v = r[delivered];
-        if(v!=null){
-          if(isTrueLike(v) || toLower(v) === 'delivered') deliveredCount++;
-        }
-      });
-      const notDelivered = total - deliveredCount;
-
-      // Money
-      const costs = cost ? filtered.map(r => parseMoney(r[cost])) : filtered.map(()=>0);
-      const totalCost = sum(costs);
-
-      let paidSum = 0, unpaidSum = 0;
-      if(paidAmount){
-        const paidVals = filtered.map(r => parseMoney(r[paidAmount]));
-        paidSum = sum(paidVals);
-        if(balance){
-          unpaidSum = sum(filtered.map(r => parseMoney(r[balance])));
-        } else if(cost){
-          unpaidSum = Math.max(0, totalCost - paidSum);
-        }
-      } else if(paidBool && cost){
-        filtered.forEach((r,i) => {
-          const paid = isTrueLike(r[paidBool]) || toLower(r[paidBool]) === 'paid';
-          if(paid) paidSum += costs[i]; else unpaidSum += costs[i];
-        });
-      }
-
-      return { total, deliveredCount, notDelivered, totalCost, paidSum, unpaidSum };
-    }
-
-    function fmtMoney(n){
-      return n.toLocaleString(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 2 });
-    }
-
-    function renderKPIs(stats){
-      document.getElementById('kpiTotal').textContent = stats.total.toLocaleString();
-      document.getElementById('kpiDelivered').textContent = stats.deliveredCount.toLocaleString();
-      document.getElementById('kpiNotDelivered').textContent = stats.notDelivered.toLocaleString();
-      document.getElementById('kpiCost').textContent = fmtMoney(stats.totalCost);
-      document.getElementById('kpiPaid').textContent = fmtMoney(stats.paidSum);
-      document.getElementById('kpiUnpaid').textContent = fmtMoney(stats.unpaidSum);
-    }
-
-    function renderTable(filtered){
-      const tbl = document.getElementById('dataTable');
-      const heads = state.headers;
-      // header
-      const thead = `<thead><tr class="text-left text-gray-500">${heads.map(h=>`<th class="px-3 py-2 border-b">${h}</th>`).join('')}</tr></thead>`;
-      // body (limit 500 rows for performance)
-      const rows = filtered.slice(0, 500).map(r => {
-        return `<tr class="odd:bg-gray-50">
-          ${heads.map(h=>`<td class="px-3 py-2 border-b whitespace-nowrap">${clean(r[h])}</td>`).join('')}
-        </tr>`
-      }).join('');
-      const tbody = `<tbody>${rows}</tbody>`;
-      tbl.innerHTML = thead + tbody;
-    }
-
-    function upsertChart(chartRef, ctx, labels, values, title){
-      if(chartRef && chartRef.destroy){ chartRef.destroy(); }
-      return new Chart(ctx, {
-        type: 'doughnut',
-        data: { labels, datasets: [{ data: values }] },
-        options: {
-          responsive: true,
-          plugins: {
-            legend: { position: 'bottom' },
-            title: { display: false, text: title }
-          }
-        }
-      });
-    }
-
-    function renderCharts(stats){
-      const dctx = document.getElementById('deliveryChart');
-      state.deliveryChart = upsertChart(state.deliveryChart, dctx, ['Delivered','미배송'], [stats.deliveredCount, stats.notDelivered], '배송 상태');
-      const pctx = document.getElementById('paymentChart');
-      state.paymentChart = upsertChart(state.paymentChart, pctx, ['Paid','미수금'], [stats.paidSum, stats.unpaidSum], '결제 상태');
-    }
-
-    function setLastUpdated(){
-      const now = new Date();
-      document.getElementById('lastUpdated').textContent = `업데이트: ${now.toLocaleString()}`;
-      document.getElementById('thisYear').textContent = now.getFullYear();
-    }
-
-    function refreshAll(){
-      const filtered = applyFilters();
-      const stats = calcStats(filtered);
-      renderKPIs(stats);
-      renderCharts(stats);
-      renderTable(filtered);
-    }
-
-    function loadCsv(url){
-      // Try direct fetch first (best for Google "Publish to web" CSV)
-      const bust = (url.includes('?') ? '&' : '?') + 'cb=' + Date.now();
-      const directUrl = url + bust;
-      return new Promise(async (resolve, reject) => {
-        try {
-          const res = await fetch(directUrl, { mode: 'cors', cache: 'no-store' });
-          if(!res.ok){ throw new Error('HTTP '+res.status+' '+res.statusText); }
-          const text = await res.text();
-          const parsed = Papa.parse(text, { header: true, dynamicTyping: false, skipEmptyLines: 'greedy' });
-          if(parsed && parsed.data){ return resolve(parsed); }
-          throw new Error('Parsing failed');
-        } catch (e1){
-          console.warn('Direct fetch failed, trying CORS proxy…', e1);
-          // Fallback via AllOrigins (public CORS proxy). For production, use your own small proxy.
-          const proxy = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url);
-          try{
-            const res2 = await fetch(proxy, { cache: 'no-store' });
-            if(!res2.ok){ throw new Error('Proxy HTTP '+res2.status+' '+res2.statusText); }
-            const text2 = await res2.text();
-            const parsed2 = Papa.parse(text2, { header: true, dynamicTyping: false, skipEmptyLines: 'greedy' });
-            if(parsed2 && parsed2.data){ return resolve(parsed2); }
-            throw new Error('Proxy parsing failed');
-          }catch(e2){
-            reject(new Error('CSV load error. Direct: '+e1.message+' | Proxy: '+e2.message));
-          }
-        }
-      });
-    }
-
-    async function fetchAndRender(){
-      try{
-        const url = state.csvUrl;
-        const res = await loadCsv(url);
-        state.rows = (res.data || []).filter(r => Object.values(r).some(v => clean(v) !== ''));
-        state.headers = res.meta && res.meta.fields ? res.meta.fields : Object.keys(state.rows[0]||{});
-        state.mapping = detectColumns(state.headers);
-        renderDetected(state.mapping);
-        buildPartSelect();
-        setLastUpdated();
-        refreshAll();
-      }catch(e){
-        console.error(e);
-        alert('CSV를 불러오지 못했습니다. 체크리스트:
-
-• Google Sheets에서 File → Share → Publish to web 로 공개되었는지
-• 제공한 링크가 pub?…output=csv 형태인지
-• 브라우저/호스팅에서 CORS가 막히지 않는지 (지금은 자동 우회 시도)
-
-기술 상세: '+(e && e.message ? e.message : e));
-      }
-    }
-
-    // Events
-    document.getElementById('refreshBtn').addEventListener('click', ()=>{
-      fetchAndRender();
-    });
-    document.getElementById('applyUrl').addEventListener('click', ()=>{
-      const v = document.getElementById('csvUrl').value.trim();
-      if(v){ state.csvUrl = v; fetchAndRender(); }
-    });
-    document.getElementById('partSelect').addEventListener('change', refreshAll);
-    document.getElementById('searchInput').addEventListener('input', ()=>{
-      // debounce not strictly needed here
-      refreshAll();
-    });
-
-    // Auto refresh
-    setInterval(()=>{ fetchAndRender(); }, state.refreshMs);
-
-    // First load
-    fetchAndRender();
-  </script>
+<script>
+const state={csvUrl:document.getElementById("csvUrl").value.trim(),rows:[],headers:[],mapping:{},deliveryChart:null,paymentChart:null};
+const CAND={part:["part","pn","item","sku"],delivered:["delivered","status","ship"],cost:["cost","amount","total","price"],paidBool:["paid","payment"],paidAmount:["paid amount","amount paid"],balance:["balance","due","outstanding"]};
+const TRUE=['y','yes','true','1','paid','delivered','complete'];
+const clean=v=>v==null?"":String(v).trim(); const toL=s=>clean(s).toLowerCase(); const parseMoney=v=>{let s=clean(v).replace(/[$,]/g,'');let n=parseFloat(s);return isNaN(n)?0:n;};
+function detectColumns(h){let l=h.map(x=>toL(x));function f(keys){for(let k of keys){for(let i=0;i<l.length;i++){if(l[i].includes(k))return h[i];}}return null;}return{part:f(CAND.part),delivered:f(CAND.delivered),cost:f(CAND.cost),paidBool:f(CAND.paidBool),paidAmount:f(CAND.paidAmount),balance:f(CAND.balance)};}
+function unique(a){return [...new Set(a.filter(Boolean))].sort();}
+function buildPart(){let sel=document.getElementById('partSelect'); let p=state.mapping.part?unique(state.rows.map(r=>clean(r[state.mapping.part]))):[]; sel.innerHTML='<option value="">모든 파트</option>'+p.map(x=>`<option>${x}</option>`).join('');}
+function filterRows(){let p=document.getElementById('partSelect').value; return state.rows.filter(r=>!p||clean(r[state.mapping.part])===p);}
+function calc(f){let m=state.mapping;let t=f.length,d=0;f.forEach(r=>{let v=r[m.delivered];if(v&& (TRUE.includes(toL(v))||toL(v)==='delivered'))d++;});let nd=t-d;
+let costs=m.cost?f.map(r=>parseMoney(r[m.cost])):f.map(()=>0);let tc=costs.reduce((a,b)=>a+b,0);let ps=0,us=0;
+if(m.paidAmount){ps=f.map(r=>parseMoney(r[m.paidAmount])).reduce((a,b)=>a+b,0);if(m.balance)us=f.map(r=>parseMoney(r[m.balance])).reduce((a,b)=>a+b,0);else us=Math.max(0,tc-ps);} else if(m.paidBool&&m.cost){f.forEach((r,i)=>{let p=TRUE.includes(toL(r[m.paidBool]))||toL(r[m.paidBool])==='paid';if(p)ps+=costs[i];else us+=costs[i];});}
+return{t,d,nd,tc,ps,us};}
+function fmt(n){return n.toLocaleString(undefined,{style:'currency',currency:'USD'});} function updK(s){kpiTotal.textContent=s.t;kpiDelivered.textContent=s.d;kpiNotDelivered.textContent=s.nd;kpiCost.textContent=fmt(s.tc);kpiPaid.textContent=fmt(s.ps);kpiUnpaid.textContent=fmt(s.us);} 
+function chart(ref,ctx,l,v){if(ref)ref.destroy();return new Chart(ctx,{type:'doughnut',data:{labels:l,datasets:[{data:v}]},options:{plugins:{legend:{position:'bottom'}}}});} 
+function table(f){let h=state.headers;dataTable.innerHTML='<thead><tr>'+h.map(x=>`<th>${x}</th>`).join('')+'</tr></thead><tbody>'+f.map(r=>'<tr>'+h.map(x=>`<td>${clean(r[x])}</td>`).join('')+'</tr>').join('')+'</tbody>';} 
+async function loadCsv(url){try{const txt=await (await fetch(url+`&cb=${Date.now()}`,{mode:'cors'})).text();return Papa.parse(txt,{header:true});}catch{const p=`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;const txt=await (await fetch(p)).text();return Papa.parse(txt,{header:true});}}
+async function fetchAndRender(){try{let res=await loadCsv(state.csvUrl);state.rows=res.data.filter(r=>Object.values(r).some(v=>clean(v)!==''));state.headers=res.meta.fields;state.mapping=detectColumns(state.headers);buildPart();let f=filterRows();let s=calc(f);updK(s);state.deliveryChart=chart(state.deliveryChart,deliveryChart,['Delivered','미배송'],[s.d,s.nd]);state.paymentChart=chart(state.paymentChart,paymentChart,['Paid','미수금'],[s.ps,s.us]);table(f);lastUpdated.textContent='Updated: '+new Date().toLocaleString();}
+catch(e){alert(`CSV 오류:\nGoogle Sheets → "웹에 게시" 되었는지 확인\n링크가 output=csv인지 확인\n\n에러: ${e.message||e}`);} }
+document.getElementById('refreshBtn').onclick=fetchAndRender;document.getElementById('partSelect').onchange=fetchAndRender;
+fetchAndRender();
+</script>
 </body>
 </html>
